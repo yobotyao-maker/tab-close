@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Tab Close",
   "version": "1.0.0",
-  "description": "A clean Chrome new tab dashboard to organize tabs, close clutter, and manage quick todos.",
+  "description": "A clean new tab dashboard for Chrome and Edge to organize tabs, close clutter, and manage quick todos.",
   "permissions": ["tabs", "activeTab", "storage"],
   "chrome_url_overrides": { "newtab": "index.html" },
   "background": { "service_worker": "background.js" },
