@@ -772,6 +772,9 @@ function buildOverflowChips(hiddenTabs, urlCounts = {}) {
       ${faviconUrl ? `<img class="chip-favicon" src="${faviconUrl}" alt="" onerror="this.style.display='none'">` : ''}
       <span class="chip-text">${label}</span>${dupeTag}
       <div class="chip-actions">
+        <button class="chip-action chip-todo" data-action="add-to-todo" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="Add to Todo">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" /></svg>
+        </button>
         <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="Save for later">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
         </button>
@@ -853,6 +856,9 @@ function renderDomainCard(group) {
       ${faviconUrl ? `<img class="chip-favicon" src="${faviconUrl}" alt="" onerror="this.style.display='none'">` : ''}
       <span class="chip-text">${label}</span>${dupeTag}
       <div class="chip-actions">
+        <button class="chip-action chip-todo" data-action="add-to-todo" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="Add to Todo">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" /></svg>
+        </button>
         <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="Save for later">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
         </button>
@@ -952,7 +958,7 @@ async function renderDeferredColumn() {
     }
 
   } catch (err) {
-    console.warn('[tab-out] Could not load saved tabs:', err);
+    console.warn('[tab-close] Could not load saved tabs:', err);
     column.style.display = 'none';
   }
 }
@@ -1005,6 +1011,74 @@ function renderArchiveItem(item) {
 
 
 /* ----------------------------------------------------------------
+   TODO LIST — chrome.storage.local
+
+   Data shape stored under the "todos" key:
+   [{ id: string, text: string, done: boolean, createdAt: number }]
+   ---------------------------------------------------------------- */
+
+async function getTodos() {
+  const { todos = [] } = await chrome.storage.local.get('todos');
+  return todos;
+}
+
+async function addTodo(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  const todos = await getTodos();
+  if (todos.some(t => t.text === trimmed)) return false;
+  todos.push({ id: Date.now().toString(), text: trimmed, done: false, createdAt: Date.now() });
+  await chrome.storage.local.set({ todos });
+  return true;
+}
+
+async function deleteTodo(id) {
+  const todos = await getTodos();
+  await chrome.storage.local.set({ todos: todos.filter(t => t.id !== id) });
+}
+
+async function toggleTodo(id) {
+  const todos = await getTodos();
+  const todo = todos.find(t => t.id === id);
+  if (todo) {
+    todo.done = !todo.done;
+    await chrome.storage.local.set({ todos });
+  }
+}
+
+async function renderTodoPanel() {
+  const listEl  = document.getElementById('todoList');
+  const emptyEl = document.getElementById('todoEmpty');
+  if (!listEl) return;
+
+  const todos = await getTodos();
+
+  if (todos.length === 0) {
+    listEl.innerHTML = '';
+    listEl.style.display = 'none';
+    if (emptyEl) emptyEl.style.display = 'block';
+    return;
+  }
+
+  if (emptyEl) emptyEl.style.display = 'none';
+  listEl.style.display = 'block';
+  const sorted = [...todos].sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    return a.createdAt - b.createdAt;
+  });
+  listEl.innerHTML = sorted.map(todo => `
+    <div class="todo-item${todo.done ? ' done' : ''}" data-todo-id="${todo.id}">
+      <input type="checkbox" class="todo-checkbox" data-action="toggle-todo" data-todo-id="${todo.id}"${todo.done ? ' checked' : ''}>
+      <span class="todo-text">${todo.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
+      <button class="todo-delete" data-action="delete-todo" data-todo-id="${todo.id}" title="Delete">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+
+/* ----------------------------------------------------------------
    MAIN DASHBOARD RENDERER
    ---------------------------------------------------------------- */
 
@@ -1023,11 +1097,11 @@ async function renderStaticDashboard() {
   // --- Header ---
   const greetingEl = document.getElementById('greeting');
   const dateEl     = document.getElementById('dateDisplay');
-  if (greetingEl) greetingEl.textContent = getGreeting();
-  if (dateEl)     dateEl.textContent     = getDateDisplay();
+  if (dateEl) dateEl.textContent = getDateDisplay();
 
   // --- Fetch tabs ---
   await fetchOpenTabs();
+  if (greetingEl) greetingEl.textContent = `${openTabs.length} tabs open`;
   const realTabs = getRealTabs();
 
   // --- Group tabs by domain ---
@@ -1166,6 +1240,9 @@ async function renderStaticDashboard() {
 
   // --- Render "Saved for Later" column ---
   await renderDeferredColumn();
+
+  // --- Render Todo panel ---
+  await renderTodoPanel();
 }
 
 async function renderDashboard() {
@@ -1198,7 +1275,7 @@ document.addEventListener('click', async (e) => {
       banner.style.opacity = '0';
       setTimeout(() => { banner.style.display = 'none'; banner.style.opacity = '1'; }, 400);
     }
-    showToast('Closed extra Tab Out tabs');
+    showToast('Closed extra Tab Close tabs');
     return;
   }
 
@@ -1275,7 +1352,7 @@ document.addEventListener('click', async (e) => {
     try {
       await saveTabForLater({ url: tabUrl, title: tabTitle });
     } catch (err) {
-      console.error('[tab-out] Failed to save tab:', err);
+      console.error('[tab-close] Failed to save tab:', err);
       showToast('Failed to save tab');
       return;
     }
@@ -1431,6 +1508,67 @@ document.addEventListener('click', async (e) => {
     showToast('All tabs closed. Fresh start.');
     return;
   }
+
+  // ---- Add todo from input ----
+  if (action === 'add-todo') {
+    const input = document.getElementById('todoInput');
+    if (!input) return;
+    const trimmed = input.value.trim();
+    if (!trimmed) { input.focus(); return; }
+    const added = await addTodo(trimmed);
+    if (added) {
+      input.value = '';
+      await renderTodoPanel();
+    } else {
+      showToast('Todo already exists');
+    }
+    input.focus();
+    return;
+  }
+
+  // ---- Add tab title to todo ----
+  if (action === 'add-to-todo') {
+    e.stopPropagation();
+    const text = actionEl.dataset.tabTitle || actionEl.dataset.tabUrl || '';
+    if (!text) return;
+    const added = await addTodo(text);
+    if (added) {
+      showToast('Added to Todo');
+      await renderTodoPanel();
+    } else {
+      showToast('Already in Todo list');
+    }
+    return;
+  }
+
+  // ---- Toggle todo done state ----
+  if (action === 'toggle-todo') {
+    const id = actionEl.dataset.todoId;
+    if (!id) return;
+    await toggleTodo(id);
+    await renderTodoPanel();
+    return;
+  }
+
+  // ---- Delete todo ----
+  if (action === 'delete-todo') {
+    const id = actionEl.dataset.todoId;
+    if (!id) return;
+    const item = actionEl.closest('.todo-item');
+    if (item) {
+      item.style.transition = 'opacity 0.2s, transform 0.2s';
+      item.style.opacity    = '0';
+      item.style.transform  = 'translateX(20px)';
+      setTimeout(async () => {
+        await deleteTodo(id);
+        await renderTodoPanel();
+      }, 200);
+    } else {
+      await deleteTodo(id);
+      await renderTodoPanel();
+    }
+    return;
+  }
 });
 
 // ---- Archive toggle — expand/collapse the archive section ----
@@ -1471,7 +1609,22 @@ document.addEventListener('input', async (e) => {
     archiveList.innerHTML = results.map(item => renderArchiveItem(item)).join('')
       || '<div style="font-size:12px;color:var(--muted);padding:8px 0">No results</div>';
   } catch (err) {
-    console.warn('[tab-out] Archive search failed:', err);
+    console.warn('[tab-close] Archive search failed:', err);
+  }
+});
+
+
+// ---- Todo input: submit on Enter key ----
+document.addEventListener('keydown', async (e) => {
+  if (e.target.id !== 'todoInput' || e.key !== 'Enter') return;
+  const trimmed = e.target.value.trim();
+  if (!trimmed) return;
+  const added = await addTodo(trimmed);
+  if (added) {
+    e.target.value = '';
+    await renderTodoPanel();
+  } else {
+    showToast('Todo already exists');
   }
 });
 
