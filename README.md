@@ -69,8 +69,7 @@ Tab Close replaces your new tab page in **Microsoft Edge** or Chrome with a mini
 
 ### Credits
 
-Original project: [Tab Out](https://github.com/zarazhangrui/tab-out) by Zara  
-This version (Tab Close) is modified and extended by Yobot.
+Built by [Yobot](https://github.com/yobotyao-maker)
 
 ### License
 
@@ -131,8 +130,7 @@ Tab Close 将 **Microsoft Edge** 或 Chrome 的新标签页替换为一个简洁
 
 ### 致谢
 
-原始项目：[Tab Out](https://github.com/zarazhangrui/tab-out)，作者 Zara  
-本版本（Tab Close）由 Yobot 修改并扩展。
+作者：[Yobot](https://github.com/yobotyao-maker)
 
 ### 许可证
 
@@ -193,8 +191,7 @@ Tab Close は **Microsoft Edge** または Chrome の新しいタブページを
 
 ### クレジット
 
-オリジナルプロジェクト：[Tab Out](https://github.com/zarazhangrui/tab-out)（作者：Zara）  
-本バージョン（Tab Close）は Yobot が改修・機能拡張しました。
+作者：[Yobot](https://github.com/yobotyao-maker)
 
 ### ライセンス
 
